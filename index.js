@@ -1,161 +1,101 @@
 /**
  * @flow
  */
+import { MMKV } from 'react-native-mmkv';
 
-import ReactNativeBlobUtil from 'react-native-blob-util';
+/*
+  By default, the options are these when initialized:
+    id: mmkv.default,
+    path: $(Documents)/mmkv/
+*/
 
-const createStoragePathIfNeeded = path =>
-  ReactNativeBlobUtil.fs
-    .exists(path)
-    .then(exists =>
-      exists
-        ? new Promise(resolve => resolve(true))
-        : ReactNativeBlobUtil.fs.mkdir(path)
-    );
+const options = {
+  id: 'mmkv.persist'
+}; //create a separate instance for redux-persist
+const storage = new MMKV(options);
 
-const onStorageReadyFactory = (storagePath: string) => (func: Function) => {
-  const storage = createStoragePathIfNeeded(storagePath);
+const MMKVStorage = {
+  /* Disabling config for now, not too sure if it will recreate a new instance if I declared or replaced the storage variable */
+  // config: (customOptions: Object) => {
+  //   options = {
+  //     ...options,
+  //     ...customOptions
+  //   }
+  // },
 
-  return (...args: Array<any>) => storage.then(() => func(...args));
-};
-
-const defaultStoragePath = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/persistStore`;
-
-let onStorageReady = onStorageReadyFactory(defaultStoragePath);
-let options = {
-  storagePath: defaultStoragePath,
-  encoding: "utf8",
-  toFileName: (name: string) => name.split(":").join("-"),
-  fromFileName: (name: string) => name.split("-").join(":")
-};
-
-const pathForKey = (key: string) =>
-  `${options.storagePath}/${options.toFileName(key)}`;
-
-const FilesystemStorage = {
-  config: (customOptions: Object) => {
-    options = {
-      ...options,
-      ...customOptions
-    };
-    onStorageReady = onStorageReadyFactory(options.storagePath);
+  setItem: (key: string, value: string, callback?: (error: ?Error) => void) => {
+    try {
+      storage.set(key, value);
+      
+      if (callback){
+        callback()
+      }
+    } catch(err){
+      if (callback){
+        callback(err)
+      }
+    }
   },
 
-  setItem: (key: string, value: string, callback?: (error: ?Error) => void) =>
-    ReactNativeBlobUtil.fs
-      .writeFile(pathForKey(key), value, options.encoding)
-      .then(() => callback && callback())
-      .catch(error => callback && callback(error)),
+  getItem: (key: string, callback?: (error: ?Error, result: ?(Array<number> | string)) => any) => {
+    try {
+      const itemExists = storage.contains(key)
 
-  getItem: onStorageReady(
-    (key: string, callback?: (error: ?Error, result: ?(Array<number> | string)) => void) => {
-      const filePath = pathForKey(options.toFileName(key));
+      if (itemExists){
+        const item = storage.getString(key)
 
-      return ReactNativeBlobUtil.fs
-        .readFile(filePath, options.encoding)
-        .then(data => {
-          if (!callback) {
-            return data;
-          }
-          callback(null, data);
-        })
-        .catch(err => {
-          return ReactNativeBlobUtil.fs
-            .exists(filePath)
-            .then(exists => {
-              if (!exists) {
-                return null;
-              } else {
-                if (!callback) {
-                  throw err;
-                }
-                callback(err);
-              }
-            })
-        });
+        if (!callback){
+          return item
+        }
+      }
+
+      if (!callback){
+        return null
+      }
+      callback(null)
+    } catch(err){
+      if (callback){
+        callback(err)
+      }
+      return err
     }
-  ),
+  },
 
   removeItem: (key: string, callback?: (error: ?Error) => void) => {
-    const filePath = pathForKey(options.toFileName(key));
-
-    const handleError = err => {
-      if (!callback) {
-        throw err;
+    try {
+      storage.set(key, value);
+      
+      if (callback){
+        callback()
       }
-      callback(err);
+    } catch(err){
+      if (callback){
+        callback(err)
+      }
     }
-
-    return ReactNativeBlobUtil.fs
-      .exists(filePath)
-      .then(exists => {
-        if (!exists) {
-          return null;
-        } else {
-          return ReactNativeBlobUtil.fs
-            .unlink(filePath)
-            .then(() => callback && callback())
-            .catch(handleError);
-        }
-      })
-      .catch(handleError);
   },
 
-  getAllKeys: (callback?: (error: ?Error, keys: ?Array<string>) => any) =>
-    ReactNativeBlobUtil.fs
-      .exists(options.storagePath)
-      .then(exists =>
-        exists ? true : ReactNativeBlobUtil.fs.mkdir(options.storagePath)
-      )
-      .then(() =>
-        ReactNativeBlobUtil.fs
-          .ls(options.storagePath)
-          .then(files => files.map<string>(file => options.fromFileName(file)))
-          .then(files => {
-            callback && callback(null, files);
-            if (!callback) {
-              return files;
-            }
-          })
-      )
-      .catch(error => {
-        callback && callback(error);
-        if (!callback) {
-          throw error;
-        }
-      }),
+  getAllKeys: (callback?: (error: ?Error, keys: ?Array<string>) => any) => {
+    try {
+      const keys = storage.getAllKeys();
+      
+      if (!callback){
+        return keys
+      }
+      callback(null, keys)
+
+    } catch(err){
+      if (callback){
+        callback(err)
+      }
+    }
+  },
 
   clear: undefined // Workaround for Flow error coming from `clear` not being part of object literal
 };
 
-FilesystemStorage.clear = (callback?: (error: ?Error, allKeysCleared: boolean | void) => void) =>
-  FilesystemStorage.getAllKeys((error, keys) => {
-    if (error) throw error;
+MMKVStorage.clear = (callback?: (error: ?Error, allKeysCleared: boolean | void) => void) => {
+  storage.clearAll();
+}
 
-    if (Array.isArray(keys) && keys.length) {
-      const removedKeys = [];
-
-      keys.forEach(key => {
-        FilesystemStorage.removeItem(key, (error: ?Error) => {
-          removedKeys.push(key);
-          if (error && callback) {
-            callback(error, false);
-          }
-
-          if (removedKeys.length === keys.length && callback)
-            callback(null, true);
-        });
-      });
-      return true;
-    }
-
-    callback && callback(null, false);
-    return false;
-  }).catch(error => {
-    callback && callback(error);
-    if (!callback) {
-      throw error;
-    }
-  });
-
-export default FilesystemStorage;
+export default MMKVStorage;

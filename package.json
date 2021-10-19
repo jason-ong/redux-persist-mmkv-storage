@@ -1,10 +1,10 @@
 {
-  "name": "redux-persist-filesystem-storage",
-  "version": "4.0.0",
-  "description": "Redux persist adaptor for React Native filesystem storage",
+  "name": "redux-persist-mmkv-storage",
+  "version": "0.0.1",
+  "description": "Custom redux persist adaptor using react-native-mmkv for better performance",
   "main": "index.js",
   "repository": {
-    "url": "https://github.com/robwalkerco/redux-persist-filesystem-storage",
+    "url": "https://github.com/dlau-github/redux-persist-mmkv-storage",
     "type": "git"
   },
   "author": "Rob Walker",
@@ -13,7 +13,7 @@
     "flow": "flow"
   },
   "dependencies": {
-    "react-native-blob-util": "^0.13.12"
+    "react-native-mmkv": "^1.5.1"
   },
   "devDependencies": {
     "flow-bin": "^0.108.0"
