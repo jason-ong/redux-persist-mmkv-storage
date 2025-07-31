@@ -13,7 +13,7 @@
     "flow": "flow"
   },
   "dependencies": {
-    "react-native-mmkv": "^1.5.1"
+    "react-native-mmkv": "1.4.0"
   },
   "devDependencies": {
     "flow-bin": "^0.108.0"
